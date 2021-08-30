@@ -1,8 +1,8 @@
 extern crate pnet;
 
 use std::env;
-use std::error;
 use std::net;
+use std::error;
 use std::str::FromStr;
 
 use pnet::packet::icmp::echo_request::MutableEchoRequestPacket;
@@ -13,7 +13,7 @@ use pnet::packet::MutablePacket;
 use pnet::transport::{icmp_packet_iter, transport_channel, TransportChannelType::Layer3};
 use pnet::util;
 
-type Result<T> = std::result::Result<T, Box<error::Error>>;
+type Result<T> = std::result::Result<T, Box<dyn error::Error>>;
 
 static IPV4_HDR_LEN: usize = 21;
 static ICMP_HDR_LEN: usize = 8;
@@ -50,7 +50,7 @@ fn build_hop_list(ip_addr: &String) -> Result<Vec<(net::IpAddr, u8)>> {
         let mut ip_buf = [0u8; 60];
         let mut icmp_buf = [0u8; 40];
                 
-        let mut icmp_packet = create_icmp_packet(&mut ip_buf, &mut icmp_buf, ip_addr, ttl).unwrap();
+        let icmp_packet = create_icmp_packet(&mut ip_buf, &mut icmp_buf, ip_addr, ttl).unwrap();
 
         tx.send_to(icmp_packet, net::IpAddr::V4(ip_addr)).unwrap();
         if let Ok((_, addr)) = rx.next() {
