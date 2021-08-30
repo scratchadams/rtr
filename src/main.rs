@@ -3,6 +3,7 @@ extern crate pnet;
 use std::env;
 use std::net;
 use std::error;
+use std::time;
 use std::str::FromStr;
 
 use pnet::packet::icmp::echo_request::MutableEchoRequestPacket;
@@ -24,7 +25,7 @@ fn main() {
     match args.len() {
         2 => {
             let hop_list = build_hop_list(&args[1]).unwrap();
-            println!("hop_list returned: {:?}", hop_list);
+            println!("hop_list returned: {:#?}", hop_list);
         }
 
         _ => println!("Usage: {} ip", args[0]),
@@ -35,11 +36,9 @@ fn main() {
 fn build_hop_list(ip_addr: &String) -> Result<Vec<(net::IpAddr, u8)>> {
     let protocol = Layer3(IpNextHeaderProtocols::Icmp);
     
-    let (mut tx, mut rx) = transport_channel(1024, protocol)
-        .map_err(|err| format!("Error opening the channel: {}", err)).unwrap();
-
-    let ip_addr = net::Ipv4Addr::from_str(&ip_addr).map_err(|_| "invalid address").unwrap();
+    let (mut tx, mut rx) = transport_channel(1024, protocol).unwrap();
     
+    let ip_addr = net::Ipv4Addr::from_str(&ip_addr).unwrap();
     let mut rx = icmp_packet_iter(&mut rx);
     let mut ttl = 1;
     let mut prev_addr = None;
@@ -49,11 +48,14 @@ fn build_hop_list(ip_addr: &String) -> Result<Vec<(net::IpAddr, u8)>> {
     loop {
         let mut ip_buf = [0u8; 60];
         let mut icmp_buf = [0u8; 40];
+        let mut duration = time::Duration::from_secs(3);
                 
         let icmp_packet = create_icmp_packet(&mut ip_buf, &mut icmp_buf, ip_addr, ttl).unwrap();
 
         tx.send_to(icmp_packet, net::IpAddr::V4(ip_addr)).unwrap();
-        if let Ok((_, addr)) = rx.next() {
+        
+        if let Some((_, addr)) = rx.next_with_timeout(duration).unwrap() {
+            
             if Some(addr) == prev_addr {
                 println!("prev: {}", addr.to_string());
                 return Ok(hop_list);
@@ -64,7 +66,6 @@ fn build_hop_list(ip_addr: &String) -> Result<Vec<(net::IpAddr, u8)>> {
             println!("TTL: {} - {:?}", ttl, addr.to_string());
         }
         ttl += 1;
-        println!("hop_list {:?}", hop_list);
     }
 
 }
@@ -88,7 +89,6 @@ fn create_icmp_packet<'a>(
     let checksum = util::checksum(&icmp_packet.packet_mut(), 2);
     icmp_packet.set_checksum(checksum);
 
-    println!("Making it here");
     ipv4_packet.set_payload(icmp_packet.packet_mut());
     Ok(ipv4_packet)
 }
