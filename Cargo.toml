@@ -7,3 +7,5 @@ edition = "2018"
 
 [dependencies]
 pnet = "*"
+tui = "0.16"
+termion = "1.5"

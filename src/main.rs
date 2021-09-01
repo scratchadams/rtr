@@ -1,5 +1,6 @@
 extern crate pnet;
 
+use std::io;
 use std::env;
 use std::net;
 use std::error;
@@ -14,6 +15,14 @@ use pnet::packet::MutablePacket;
 use pnet::transport::{icmp_packet_iter, transport_channel, TransportChannelType::Layer3};
 use pnet::util;
 
+use tui::Terminal;
+use tui::backend::TermionBackend;
+use tui::widgets::{Widget, Block, Borders, Paragraph};
+use tui::layout::{Alignment, Layout, Constraint, Direction};
+use tui::style::{Color, Style, Modifier};
+use tui::text::{Span, Spans};
+use termion::raw::IntoRawMode;
+
 type Result<T> = std::result::Result<T, Box<dyn error::Error>>;
 
 static IPV4_HDR_LEN: usize = 21;
@@ -25,7 +34,39 @@ fn main() {
     match args.len() {
         2 => {
             let hop_list = build_hop_list(&args[1]).unwrap();
-            println!("hop_list returned: {:#?}", hop_list);
+            
+            let stdout = io::stdout().into_raw_mode().unwrap();
+            let backend = TermionBackend::new(stdout);
+            let mut terminal = Terminal::new(backend).unwrap();
+           
+            loop {
+                terminal.draw(|f| {
+                    
+                    let text = vec![Spans::from("Test123"),];
+
+                    let create_block = |title| {
+                        Block::default()
+                            .borders(Borders::ALL)
+                            .style(Style::default().bg(Color::White).fg(Color::Black))
+                            .title(Span::styled(title, Style::default().add_modifier(Modifier::BOLD)))
+                    };
+
+                    let size = f.size();
+                    
+                    let block = Block::default()
+                        .title("Block")
+                        .borders(Borders::ALL);
+                    
+                    f.render_widget(block, size);
+
+                    let para = Paragraph::new(text)
+                        .style(Style::default().bg(Color::White).fg(Color::Black))
+                        .block(create_block("left, no wrap"))
+                        .alignment(Alignment::Left);
+                    f.render_widget(para, size);
+                }).unwrap();
+            }
+            //println!("hop_list returned: {:#?}", hop_list);
         }
 
         _ => println!("Usage: {} ip", args[0]),
@@ -46,6 +87,11 @@ fn build_hop_list(ip_addr: &String) -> Result<Vec<(net::IpAddr, u8)>> {
     let mut hop_list = Vec::new();
 
     loop {
+
+        if ttl > 63 {
+            return Ok(hop_list);
+        }
+
         let mut ip_buf = [0u8; 60];
         let mut icmp_buf = [0u8; 40];
         let mut duration = time::Duration::from_secs(3);
@@ -63,7 +109,7 @@ fn build_hop_list(ip_addr: &String) -> Result<Vec<(net::IpAddr, u8)>> {
             prev_addr = Some(addr);
                     
             hop_list.push((addr, ttl));
-            println!("TTL: {} - {:?}", ttl, addr.to_string());
+            //println!("TTL: {} - {:?}", ttl, addr.to_string());
         }
         ttl += 1;
     }
