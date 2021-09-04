@@ -42,7 +42,8 @@ fn main() {
             loop {
                 terminal.draw(|f| {
                     
-                    let text = vec![Spans::from("Test123"),];
+                    let mut text = vec![Spans::from("127.0.0.1"),];
+                    //let text2 = vec![Spans::from("Right panel"),];
 
                     let create_block = |title| {
                         Block::default()
@@ -53,17 +54,18 @@ fn main() {
 
                     let size = f.size();
                     
-                    let block = Block::default()
-                        .title("Block")
-                        .borders(Borders::ALL);
+                    for hop in &hop_list {
+                        text.push(Spans::from(hop.0.to_string()))
+                    }
                     
-                    f.render_widget(block, size);
-
                     let para = Paragraph::new(text)
                         .style(Style::default().bg(Color::White).fg(Color::Black))
                         .block(create_block("left, no wrap"))
                         .alignment(Alignment::Left);
                     f.render_widget(para, size);
+
+                    
+
                 }).unwrap();
             }
             //println!("hop_list returned: {:#?}", hop_list);
